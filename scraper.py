@@ -1,3 +1,4 @@
+from urllib import response
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime
@@ -11,8 +12,8 @@ to_scrape = [
     "https://www.numbeo.com/cost-of-living",
     "https://www.numbeo.com/crime",
     "https://www.numbeo.com/quality-of-life",
-    "https://www.numbeo.com/health-care",
-    "https://www.numbeo.com/pollution",
+    # "https://www.numbeo.com/health-care",
+    # "https://www.numbeo.com/pollution",
     # "https://www.numbeo.com/traffic",
     "https://www.numbeo.com/property-investment"
 ]
@@ -28,17 +29,36 @@ def getUrl(main_link, year):
     return main_link + "/region_rankings.jsp?title=" + str(year) + "&region=150"
 
 
+# def calc_response():
+
+
+def editJSON(to_save):
+    print("Parsing JSON...")
+    result = []
+    with open("scraped_results.json", "r") as f:
+        to_save = json.load(f)
+    countries = [*to_save]
+    for country in countries:
+        cities = [*to_save[country]]
+        for city in cities:
+            result.append({
+                'city': city, 'country': country, 'metrics': to_save[country][city]})
+    with open("new_scraped_results.txt", "w") as f:
+        json.dump(result, f)
+    print("JSON parsed.")
+
+
 def generate_missing(to_save, current_year):
     print("Generating missing values...")
     allkeys = {"cost_of_living_index": 0, "rent_index": 1,
                "groceries_index": 2, "restaurant_price_index": 3, "local_ppi_index": 4, "crime_index": 5, "safety_index": 6, "qol_index": 7, "ppi_index": 8, "health_care_index": 9,
-               "traffic_commute_index": 10, "pollution_index": 11, "climate_index": 12, "health_care_exp_index": 13, "pollution_exp_index": 14, "gross_rental_yield_centre": 15,
-               "gross_rental_yield_out": 16, "price_to_rent_centre": 17, "price_to_rent_out": 18, "affordability_index": 19}
-    
+               "traffic_commute_index": 10, "pollution_index": 11, "climate_index": 12, "gross_rental_yield_centre": 13,
+               "gross_rental_yield_out": 14, "price_to_rent_centre": 15, "price_to_rent_out": 16, "affordability_index": 17}
+
     countries = [*to_save]
     rand_dists = {}
     skipped = set()
-    
+
     for country in countries:
         means = [[0, 0] for col in range(len(allkeys))]
         cities = [*to_save[country]]
@@ -46,60 +66,69 @@ def generate_missing(to_save, current_year):
             for year in range(2017, current_year + 1):
                 for key in [*allkeys]:
                     if to_save[country][city][year][key] != None:
-                        means[allkeys[key]][0] += float(to_save[country][city][year][key])
+                        means[allkeys[key]
+                              ][0] += float(to_save[country][city][year][key])
                         means[allkeys[key]][1] += 1
-        
+
         no_vals = False
         for key in [*allkeys]:
             if not no_vals:
                 try:
-                    means[allkeys[key]][0] = means[allkeys[key]][0] / means[allkeys[key]][1]
+                    means[allkeys[key]][0] = means[allkeys[key]][0] / \
+                        means[allkeys[key]][1]
                 except:
                     no_vals = True
                     skipped.add(country)
                     break
             else:
                 break
-        
+
         if not no_vals:
             st_devs = [0 for col in range(len(allkeys))]
             for city in cities:
                 for year in range(2017, current_year + 1):
                     for key in [*allkeys]:
                         if to_save[country][city][year][key] != None:
-                            st_devs[allkeys[key]] += math.pow((float(to_save[country][city][year][key]) - means[allkeys[key]][0]), 2)
+                            st_devs[allkeys[key]] += math.pow(
+                                (float(to_save[country][city][year][key]) - means[allkeys[key]][0]), 2)
 
             for key in [*allkeys]:
                 if(means[allkeys[key]][1] == 1):
                     st_devs[allkeys[key]] = 0
                 else:
-                    st_devs[allkeys[key]] = math.sqrt(st_devs[allkeys[key]] / (means[allkeys[key]][1] - 1))
+                    st_devs[allkeys[key]] = math.sqrt(
+                        st_devs[allkeys[key]] / (means[allkeys[key]][1] - 1))
 
             rand_dists[country] = [[] for col in range(len(allkeys))]
             for key in [*allkeys]:
-                rand_dists[country][allkeys[key]] = np.random.normal(means[allkeys[key]][0], st_devs[allkeys[key]], 15)
+                rand_dists[country][allkeys[key]] = np.random.normal(
+                    means[allkeys[key]][0], st_devs[allkeys[key]], 15)
 
     for c in skipped:
         del to_save[c]
-    
+
     countries = [*to_save]
+    response_var = 0
     for country in countries:
         cities = [*to_save[country]]
         for city in cities:
             for year in range(2017, current_year + 1):
                 for key in [*allkeys]:
                     if to_save[country][city][year][key] == None:
-                        to_save[country][city][year][key] = str(round(rand_dists[country][allkeys[key]][random.randint(0, 14)], 2))
-    
+                        to_save[country][city][year][key] = str(
+                            round(rand_dists[country][allkeys[key]][random.randint(0, 14)], 2))
+
     with open("scraped_results.json", "w") as f:
         json.dump(to_save, f, indent=4)
     print("Data collection completed. Removed countries: " + ', '.join(skipped))
+    editJSON(to_save)
+
 
 def add_null_values(to_save, current_year):
     print("Processing data...")
     allkeys = ["cost_of_living_index", "rent_index",
                "groceries_index", "restaurant_price_index", "local_ppi_index", "crime_index", "safety_index", "qol_index", "ppi_index", "health_care_index",
-               "traffic_commute_index", "pollution_index", "climate_index", "health_care_exp_index", "pollution_exp_index", "gross_rental_yield_centre",
+               "traffic_commute_index", "pollution_index", "climate_index",  "gross_rental_yield_centre",
                "gross_rental_yield_out", "price_to_rent_centre", "price_to_rent_out", "affordability_index"]
     countries = [*to_save]
     for country in countries:
@@ -150,10 +179,10 @@ def scrape():
                 elif cont == 2:
                     db_keys = ["qol_index", "ppi_index", "health_care_index",
                                "traffic_commute_index", "pollution_index", "climate_index"]
-                elif cont == 3:
-                    db_keys = ["health_care_exp_index"]
-                elif cont == 4:
-                    db_keys = ["pollution_exp_index"]
+                # elif cont == 3:
+                #     db_keys = ["health_care_exp_index"]
+                # elif cont == 4:
+                #     db_keys = ["pollution_exp_index"]
                 else:
                     db_keys = ["gross_rental_yield_centre", "gross_rental_yield_out",
                                "price_to_rent_centre", "price_to_rent_out", "affordability_index"]
@@ -167,3 +196,6 @@ def scrape():
         trusty_sleep(random.randint(2, 5))
 
     add_null_values(to_save, current_year)
+
+
+scrape()
