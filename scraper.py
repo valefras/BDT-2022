@@ -26,6 +26,27 @@ def getUrl(main_link, year):
     return main_link + "/region_rankings.jsp?title=" + str(year) + "&region=150"
 
 
+def add_null_values(to_save, year_limit):
+    print("Checking data...")
+    allkeys = ["cost_of_living_index", "rent_index",
+               "groceries_index", "restaurant_price_index", "local_ppi_index", "crime_index", "safety_index", "qol_index", "ppi_index", "health_care_index",
+               "traffic_commute_index", "pollution_index", "climate_index", "health_care_exp_index", "pollution_exp_index", "gross_rental_yield_centre",
+               "gross_rental_yield_out", "price_to_rent_centre", "price_to_rent_out", "affordability_index"]
+    countries = [*to_save]
+    for country in countries:
+        cities = [*to_save[country]]
+        for city in cities:
+            for year in range(2017, year_limit):
+                if year not in to_save[country][city]:
+                    to_save[country][city][year] = {}
+                for key in allkeys:
+                    if key not in to_save[country][city][year]:
+                        to_save[country][city][year][key] = None
+    print("Scraping finished")
+    with open("scraped_results.json", "w") as f:
+        json.dump(to_save, f, indent=4)
+
+
 def scrape():
     if datetime.now().month <= 2:
         current_year = datetime.now().year-1
@@ -67,7 +88,8 @@ def scrape():
                 elif cont == 4:
                     db_keys = ["pollution_exp_index"]
                 else:
-                    db_keys = ["gross_rental_yield_centre", "gross_rental_yield_out", "price_to_rent_centre", "price_to_rent_out", "affordability_index"]
+                    db_keys = ["gross_rental_yield_centre", "gross_rental_yield_out",
+                               "price_to_rent_centre", "price_to_rent_out", "affordability_index"]
 
                 for i in range(len(db_keys)):
                     to_save[city[1]][city[0]][year][db_keys[i]] = city_data[i]
@@ -76,5 +98,5 @@ def scrape():
         cont += 1
         print(link + " done")
         trusty_sleep(random.randint(2, 5))
-    with open("scraped_results.json", "w") as f:
-        json.dump(to_save, f, indent=4)
+
+    add_null_values(to_save, current_year + 1)
