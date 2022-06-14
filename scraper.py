@@ -4,6 +4,8 @@ from datetime import datetime
 from time import time, sleep
 import random
 import json
+import numpy as np
+import math
 
 to_scrape = [
     "https://www.numbeo.com/cost-of-living",
@@ -26,8 +28,75 @@ def getUrl(main_link, year):
     return main_link + "/region_rankings.jsp?title=" + str(year) + "&region=150"
 
 
-def add_null_values(to_save, year_limit):
-    print("Checking data...")
+def generate_missing(to_save, current_year):
+    print("Generating missing values...")
+    allkeys = {"cost_of_living_index": 0, "rent_index": 1,
+               "groceries_index": 2, "restaurant_price_index": 3, "local_ppi_index": 4, "crime_index": 5, "safety_index": 6, "qol_index": 7, "ppi_index": 8, "health_care_index": 9,
+               "traffic_commute_index": 10, "pollution_index": 11, "climate_index": 12, "health_care_exp_index": 13, "pollution_exp_index": 14, "gross_rental_yield_centre": 15,
+               "gross_rental_yield_out": 16, "price_to_rent_centre": 17, "price_to_rent_out": 18, "affordability_index": 19}
+    
+    countries = [*to_save]
+    rand_dists = {}
+    skipped = set()
+    
+    for country in countries:
+        means = [[0, 0] for col in range(len(allkeys))]
+        cities = [*to_save[country]]
+        for city in cities:
+            for year in range(2017, current_year + 1):
+                for key in [*allkeys]:
+                    if to_save[country][city][year][key] != None:
+                        means[allkeys[key]][0] += float(to_save[country][city][year][key])
+                        means[allkeys[key]][1] += 1
+        
+        no_vals = False
+        for key in [*allkeys]:
+            if not no_vals:
+                try:
+                    means[allkeys[key]][0] = means[allkeys[key]][0] / means[allkeys[key]][1]
+                except:
+                    no_vals = True
+                    skipped.add(country)
+                    break
+            else:
+                break
+        
+        if not no_vals:
+            st_devs = [0 for col in range(len(allkeys))]
+            for city in cities:
+                for year in range(2017, current_year + 1):
+                    for key in [*allkeys]:
+                        if to_save[country][city][year][key] != None:
+                            st_devs[allkeys[key]] += math.pow((float(to_save[country][city][year][key]) - means[allkeys[key]][0]), 2)
+
+            for key in [*allkeys]:
+                if(means[allkeys[key]][1] == 1):
+                    st_devs[allkeys[key]] = 0
+                else:
+                    st_devs[allkeys[key]] = math.sqrt(st_devs[allkeys[key]] / (means[allkeys[key]][1] - 1))
+
+            rand_dists[country] = [[] for col in range(len(allkeys))]
+            for key in [*allkeys]:
+                rand_dists[country][allkeys[key]] = np.random.normal(means[allkeys[key]][0], st_devs[allkeys[key]], 15)
+
+    for c in skipped:
+        del to_save[c]
+    
+    countries = [*to_save]
+    for country in countries:
+        cities = [*to_save[country]]
+        for city in cities:
+            for year in range(2017, current_year + 1):
+                for key in [*allkeys]:
+                    if to_save[country][city][year][key] == None:
+                        to_save[country][city][year][key] = str(round(rand_dists[country][allkeys[key]][random.randint(0, 14)], 2))
+    
+    with open("scraped_results.json", "w") as f:
+        json.dump(to_save, f, indent=4)
+    print("Data collection completed. Removed countries: " + ', '.join(skipped))
+
+def add_null_values(to_save, current_year):
+    print("Processing data...")
     allkeys = ["cost_of_living_index", "rent_index",
                "groceries_index", "restaurant_price_index", "local_ppi_index", "crime_index", "safety_index", "qol_index", "ppi_index", "health_care_index",
                "traffic_commute_index", "pollution_index", "climate_index", "health_care_exp_index", "pollution_exp_index", "gross_rental_yield_centre",
@@ -36,15 +105,13 @@ def add_null_values(to_save, year_limit):
     for country in countries:
         cities = [*to_save[country]]
         for city in cities:
-            for year in range(2017, year_limit):
+            for year in range(2017, current_year + 1):
                 if year not in to_save[country][city]:
                     to_save[country][city][year] = {}
                 for key in allkeys:
                     if key not in to_save[country][city][year]:
                         to_save[country][city][year][key] = None
-    print("Scraping finished")
-    with open("scraped_results.json", "w") as f:
-        json.dump(to_save, f, indent=4)
+    generate_missing(to_save, current_year)
 
 
 def scrape():
@@ -99,4 +166,4 @@ def scrape():
         print(link + " done")
         trusty_sleep(random.randint(2, 5))
 
-    add_null_values(to_save, current_year + 1)
+    add_null_values(to_save, current_year)
