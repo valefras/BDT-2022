@@ -7,14 +7,12 @@ import random
 import json
 import numpy as np
 import math
+import mongodb_setup as mongo
 
 to_scrape = [
     "https://www.numbeo.com/cost-of-living",
     "https://www.numbeo.com/crime",
     "https://www.numbeo.com/quality-of-life",
-    # "https://www.numbeo.com/health-care",
-    # "https://www.numbeo.com/pollution",
-    # "https://www.numbeo.com/traffic",
     "https://www.numbeo.com/property-investment"
 ]
 
@@ -28,6 +26,12 @@ def trusty_sleep(n):
 def getUrl(main_link, year):
     return main_link + "/region_rankings.jsp?title=" + str(year) + "&region=150"
 
+def push_to_mongo(to_save):
+    myconn = mongo.connect()
+    mydb = mongo.createDB(myconn)
+    mycoll = mongo.createColl(mydb)
+    mongo.populateDB(mycoll, to_save)
+    print("Data saved in database.")
 
 def editJSON(to_save, countries):
     print("Parsing JSON...")
@@ -40,6 +44,7 @@ def editJSON(to_save, countries):
     with open("new_scraped_results.txt", "w") as f:
         json.dump(result, f)
     print("JSON parsed.")
+    push_to_mongo(to_save)
 
 def calc_response(to_save, countries, current_year):
     print("Creating response variable...")
@@ -196,10 +201,6 @@ def scrape():
                 elif cont == 2:
                     db_keys = ["qol_index", "ppi_index", "health_care_index",
                                "traffic_commute_index", "pollution_index", "climate_index"]
-                # elif cont == 3:
-                #     db_keys = ["health_care_exp_index"]
-                # elif cont == 4:
-                #     db_keys = ["pollution_exp_index"]
                 else:
                     db_keys = ["gross_rental_yield_centre", "gross_rental_yield_out",
                                "price_to_rent_centre", "price_to_rent_out", "affordability_index"]
