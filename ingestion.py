@@ -1,13 +1,25 @@
 
-from pyparsing import col
+from database_setup import connect
+from pyspark.ml.feature import VectorAssembler
+from pyspark.ml import Pipeline
+from pyspark.sql.types import *
+import pyspark.sql.functions as F
+from pyspark.sql.types import DoubleType
+from pyspark.sql.functions import udf
+from pyspark.ml import Pipeline
+from pyspark.ml.feature import VectorAssembler
+from pyspark.ml.feature import StandardScaler
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime
 from time import time, sleep
 import random
 import numpy as np
+import pandas as pd
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import stddev, avg, when
+from dotenv import load_dotenv
+
+load_dotenv()
 
 spark = SparkSession \
     .builder \
@@ -17,8 +29,8 @@ spark = SparkSession \
 to_scrape = [
     "https://www.numbeo.com/cost-of-living",
     "https://www.numbeo.com/crime",
-    # "https://www.numbeo.com/quality-of-life",
-    # "https://www.numbeo.com/property-investment"
+    "https://www.numbeo.com/quality-of-life",
+    "https://www.numbeo.com/property-investment"
 ]
 
 
@@ -77,92 +89,54 @@ for link in to_scrape:
             city.extend(city_data)
 
             inter_data.append(city)
+        print(str(year) + " done")
+
     if cont == 0:
-        dataf = spark.createDataFrame(inter_data, schema=var_values)
+        dataf = pd.DataFrame(inter_data, columns=var_values)
+        # dataf = spark.createDataFrame(inter_data, schema=var_values)
     else:
-        dataf = dataf.join(spark.createDataFrame(inter_data, schema=var_values), [
-            'city', 'country', 'year'], how='outer')
-    print(str(year) + " done")
+        dataf = pd.merge(pd.DataFrame(inter_data, columns=var_values),
+                         dataf, how='outer', on=['city', 'country', 'year'])
+        # dataf = dataf.join(spark.createDataFrame(inter_data, schema=var_values), [
+        #   'city', 'country', 'year'], how='outer')
     trusty_sleep(random.randint(2, 5))
     cont += 1
     print(link + " done")
-dataf.show(n=5)
-dataf.schema
 print('Data extracted.')
-# data_processing(dataf)
+
+print('Filling missing values...')
+listColumns = list(dataf.columns)
+listColumns.remove('year')
+avg_df = dataf.groupby('country')[listColumns].mean()
+std_df = dataf.groupby('country')[listColumns].std()
+
+for variable in dataf.columns[3:]:
+    dataf[variable] = dataf.apply(lambda x: round(np.random.normal(avg_df.loc[x['country']][variable], std_df.loc[x['country']][variable]), 2) if pd.isnull(
+        x[variable]) else x[variable], axis=1)
+
+filled_dataf = dataf.dropna()
+print('Missing values filled.')
 
 
-# def data_processing(dataf):
-print('Starting data processing and generation...')
+spark_dataf = spark.createDataFrame(filled_dataf)
+spark_dataf.printSchema()
 
-dataf.createOrReplaceTempView("city_data")
-# countries = spark.sql("SELECT DISTINCT country FROM city_data")
-# coun_list = countries.select('country').rdd.flatMap(lambda x: x).collect()
-# for country in coun_list:
-country = None
-for variable in dataf.schema.names[3:]:
-    # country_distributions = {}
-    # null_count = spark.sql(
-    #     f"SELECT city, country, year FROM city_data WHERE {variable} IS NULL").show()
-    # mean_sd = spark.sql(
-    #     f"SELECT AVG({variable}), STDEV({variable}), country FROM city_data WHERE country={}").show()
-    # for city coutrnu yeaar
-    #     UPDAte where
-    # # countries = spark.sql(
-    # #     f"SELECT country FROM city_data WHERE {variable} IS NULL GROUP BY country").show()
-    # # sample2 = sample.rdd.map(lambda x: (x.name, x.age, x.city))
-    # countries = null_count.select("country").distinct.show()
+colnames = spark_dataf.schema.names[3:]
+vecAssembler = VectorAssembler(
+    inputCols=colnames, outputCol="features", handleInvalid='skip')
+normalizer = StandardScaler(
+    inputCol="features", outputCol="scaledFeatures")
+pipeline_normalize = Pipeline(stages=[vecAssembler, normalizer])
+df_transf = pipeline_normalize.fit(spark_dataf).transform(spark_dataf)
+to_array = F.udf(lambda x: (x.toArray().tolist()), ArrayType(DoubleType()))
+df_array = df_transf.withColumn("scaledFeatures", to_array("scaledFeatures"))
+df_final = df_array.select([F.col('city'), F.col('country'), F.col('year')]+[F.round(F.col('scaledFeatures')[i], 3).alias(
+    colnames[i]) for i in range(len(colnames))])
 
-    # def fill_col():
-    #     np.random.normal(mu, sigma)
-    # dataf.fillna(0, subset=[variable]).show()
-    # dataf.filter()
-    # dataf.where(Column("price_to_rent_centre").isNull()).show()
+df_final_y = df_final.withColumn("y", F.round(df_final["cost_of_living_index"]*-1+df_final["rent_index"]*1+df_final["groceries_index"]*-0.5+df_final["restaurant_price_index"]*-0.5+df_final["local_ppi_index"]*1+df_final["crime_index"]*-1+df_final["safety_index"]*1+df_final["qol_index"]*1+df_final["ppi_index"]*1 +
+                                              df_final["health_care_index"]*1+df_final["traffic_commute_index"]*-0.5+df_final["pollution_index"]*-1+df_final["climate_index"]*0.5+df_final["gross_rental_yield_centre"]*1+df_final["gross_rental_yield_out"]*1+df_final["price_to_rent_centre"]*-1+df_final["price_to_rent_out"]*-1+df_final["affordability_index"]*1, 3))
 
-    #s = np.random.normal(mu, sigma, n_null)
 
-    # to_process = spark.sql(
-    #     f"SELECT AVG({variable}), STDEV({variable}), country FROM city_data WHERE {variable} IS NOT NULL GROUP BY country")
-
-    # scrape()
-
-    null_count = spark.sql(
-        f"SELECT country FROM city_data WHERE {variable} IS NULL GROUP BY country").select('country').rdd.flatMap(lambda x: x).collect()
-    # to_process = spark.sql(
-    #     f"SELECT AVG({variable}), STDEV({variable}), country FROM city_data WHERE {variable} IS NOT NULL GROUP BY country")
-    mean_std = dataf.groupBy("country").agg(avg(variable).alias(
-        'avg'), stddev(variable).alias('std'))  # .filter(dataf.groupBy("country").count(when(col(variable).isNull()))).show(5)
-
-    # .select(
-    #     col('country'),
-    #     _mean(col(variable)).alias('mean'),
-    #     _stddev(col(variable)).alias('std'),
-    # ).collect()
-    #to_process_dict = to_process.toPandas().set_index('country').T.to_dict('list')
-    city_info = spark.sql(
-        f"SELECT city, country, year FROM city_data WHERE {variable} IS NULL").select(['city', 'country', 'year']).rdd.map(lambda row: row.asDict()).collect()
-    # .select(['city', 'country', 'year']).rdd.flatMap(lambda x: x).collect()
-
-    for i in city_info:
-        avg_country = mean_std.select('avg').filter(
-            mean_std('country') == i['country']).head()[0]
-        std_country = mean_std.select('std').filter(
-            mean_std('country') == i['country']).head()[0]
-
-        normal_dist = round(np.random.normal(avg_country, std_country), 2)
-
-        update_city = i['city']
-        update_country = i['country']
-        update_year = i['year']
-
-        dataf = dataf.withColumn(variable, when((col('country') == update_country) & (col(
-            'city') == update_city) & (col('year') == update_year), normal_dist).otherwise(0))
-        # spark.sql(
-        #     f"UPDATE city_data SET {variable}={normal_dist} WHERE country='{update_country}' AND city='{update_city}' AND year={update_year}")
-
-dataf.show()
-# avg = to_process[list(zip(*to_process))
-#                  [3].index(null_count[i][1])][1]
-# stdev = to_process[list(zip(*to_process))
-#                    [3].index(null_count[i][1])][2]
-# update dei valori dalla normale
+to_upload = df_final_y.toPandas()
+to_upload.to_sql(con=connect(), name='main_data',
+                 if_exists='replace')
