@@ -66,9 +66,9 @@ def train_LSTM(df_train):
             X = df.iloc[:, :-1]
             y = df.iloc[:, -1:]
 
-            X_ss = ss.fit_transform(X)
-            # X_ss = np.array([X.iloc[i,:].values for i in range(X.shape[0])])
-            y_mm = mm.fit_transform(y)
+            # X_ss = ss.fit_transform(X)
+            X_ss = np.array([X.iloc[i,:].values for i in range(X.shape[0])])
+            y_mm = np.array([y.iloc[i].values for i in range(y.shape[0])])
             X_train = X_ss
             y_train = y_mm
             X_train_tensors = Variable(torch.Tensor(X_train))
@@ -79,10 +79,10 @@ def train_LSTM(df_train):
             X_train_tensors_final = torch.reshape(
                 X_train_tensors, (X_train_tensors.shape[0], 1, X_train_tensors.shape[1]))
 
-            num_epochs = 500  # 500 epochs
+            num_epochs = 200  # 200 epochs
             learning_rate = 0.001  # 0.001 lr
 
-            input_size = 19  # number of features
+            input_size = 18  # number of features
             hidden_size = 2  # number of features in hidden state
             num_layers = 1  # number of stacked lstm layers
 
@@ -107,8 +107,8 @@ def train_LSTM(df_train):
                 if epoch % 100 == 0:
                     print("Epoch: %d, loss: %1.5f" % (epoch, loss.item()))
 
-            df_X_ss = ss.fit_transform(df_to_predict)
-            # df_X_ss = np.array([df_to_predict.iloc[i,:].values for i in range(df_to_predict.shape[0])])
+            # df_X_ss = ss.fit_transform(df_to_predict)
+            df_X_ss = np.array([df_to_predict.iloc[i,:].values for i in range(df_to_predict.shape[0])])
             df_X_ss = Variable(torch.Tensor(df_X_ss))  # converting to Tensors
 
             # reshaping the dataset
@@ -118,8 +118,7 @@ def train_LSTM(df_train):
             train_predict = lstm1(df_X_ss)  # forward pass
             data_predict = train_predict.data.numpy()  # numpy conversion
 
-            data_predict = mm.inverse_transform(
-                data_predict)  # reverse transformation
+            #data_predict = mm.inverse_transform(data_predict)  # reverse transformation
             df_to_predict_main["y"] = data_predict
             df_to_predict_main = df_to_predict_main[[
                 'city', 'country', 'year', 'y']]

@@ -13,7 +13,7 @@
       titleKey="country"
       idKey="country"
       :value="value"
-      geojsonIdKey="name"
+      geojsonIdKey="geounit"
       :geojson="geo"
       :colorScale="colorScale"
       :click="showCountry"

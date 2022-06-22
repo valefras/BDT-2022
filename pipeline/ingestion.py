@@ -7,7 +7,7 @@ from pyspark.sql.types import DoubleType
 from pyspark.sql.functions import udf
 from pyspark.ml import Pipeline
 from pyspark.ml.feature import VectorAssembler
-from pyspark.ml.feature import StandardScaler
+from pyspark.ml.feature import StandardScaler, MinMaxScaler
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime
@@ -115,7 +115,8 @@ def fill_missing(dataf):
     for year in years:
         for city in cities:
             if not (dataf["city"][(dataf['year'] == int(year))] == city).any().all():
-                to_insert = [city, dataf[dataf.city == city].iloc[0].country, year]
+                to_insert = [
+                    city, dataf[dataf.city == city].iloc[0].country, year]
                 to_insert.extend([None for i in range(18)])
                 dataf.loc[len(dataf.index)] = to_insert
     for variable in dataf.columns[3:]:
@@ -131,7 +132,7 @@ def normalize_data(filled_dataf):
     spark_dataf = spark.createDataFrame(filled_dataf)
     # spark_dataf.printSchema()
 
-    """ colnames = spark_dataf.schema.names[3:]
+    colnames = spark_dataf.schema.names[3:]
     vecAssembler = VectorAssembler(
         inputCols=colnames, outputCol="features", handleInvalid='skip')
     normalizer = StandardScaler(
@@ -142,10 +143,22 @@ def normalize_data(filled_dataf):
     df_array = df_transf.withColumn(
         "scaledFeatures", to_array("scaledFeatures"))
     df_final = df_array.select([F.col('city'), F.col('country'), F.col('year')]+[F.round(F.col('scaledFeatures')[i], 3).alias(
-        colnames[i]) for i in range(len(colnames))]) """
-    df_final = spark_dataf
-    df_final_y = df_final.withColumn("y", F.round(df_final["cost_of_living_index"]*-1+df_final["rent_index"]*1+df_final["groceries_index"]*-0.5+df_final["restaurant_price_index"]*-0.5+df_final["local_ppi_index"]*1+df_final["crime_index"]*-1+df_final["safety_index"]*1+df_final["qol_index"]*1+df_final["ppi_index"]*1 +
+        colnames[i]) for i in range(len(colnames))])
+
+    df_final_y_temp = df_final.withColumn("y", F.round(df_final["cost_of_living_index"]*-1+df_final["rent_index"]*1+df_final["groceries_index"]*-0.5+df_final["restaurant_price_index"]*-0.5+df_final["local_ppi_index"]*1+df_final["crime_index"]*-1+df_final["safety_index"]*1+df_final["qol_index"]*1+df_final["ppi_index"]*1 +
                                                   df_final["health_care_index"]*1+df_final["traffic_commute_index"]*-0.5+df_final["pollution_index"]*-1+df_final["climate_index"]*0.5+df_final["gross_rental_yield_centre"]*1+df_final["gross_rental_yield_out"]*1+df_final["price_to_rent_centre"]*-1+df_final["price_to_rent_out"]*-1+df_final["affordability_index"]*1, 3))
+
+    colnames = spark_dataf.schema.names[:-1]
+    vecAssembler = VectorAssembler(
+        inputCols=["y"], outputCol="features", handleInvalid='skip')
+    normalizer = MinMaxScaler(
+        inputCol="features", outputCol="scaledFeatures")
+    pipeline_normalize = Pipeline(stages=[vecAssembler, normalizer])
+    df_transf = pipeline_normalize.fit(df_final_y_temp).transform(df_final_y_temp)
+    to_array = F.udf(lambda x: (x.toArray().tolist()), ArrayType(DoubleType()))
+    df_array = df_transf.withColumn(
+        "scaledFeatures", to_array("scaledFeatures"))
+    df_final_y = df_array.select([F.col(name) for name in colnames]+[F.round(F.col('scaledFeatures')[0], 3).alias("y")])
     return insert_DB(df_final_y)
 
 

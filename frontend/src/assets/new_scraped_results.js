@@ -1,1 +1,0 @@
-export var countryData = [{"id": 0, "country": "Italy", "y": -377.52}, {"id": 0, "country": "Germany", "y": 54.52}]

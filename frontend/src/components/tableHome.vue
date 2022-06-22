@@ -10,7 +10,7 @@
         </tr>
       </thead>
       <tbody>
-        <tr v-for="c in cities" :key="c.city" class="bg-change">
+        <tr v-for="c in cities" :key="c.metrics.id" class="bg-change">
           <td class="p-1 px-2">{{ c.city }}</td>
           <td class="p-1 px-2" v-for="k in keys" :key="c.city + k">
             {{ c.metrics[k] }}

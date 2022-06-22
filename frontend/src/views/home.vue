@@ -10,6 +10,7 @@
       </span>
     </div>
     <choro
+      v-if="showChoro"
       :center="center"
       :countryData="countryData"
       :geo="geo"
@@ -58,8 +59,9 @@
 </template>
 
 <script>
+import axios from "axios";
 import choro from "@/components/choro_map.vue";
-import { countryData } from "../assets/new_scraped_results";
+//import { countryData } from "../assets/new_scraped_results";
 import geo from "../assets/custom.geo.json";
 import tableHome from "@/components/tableHome.vue";
 import { Line as LineChartGenerator } from "vue-chartjs/legacy";
@@ -93,7 +95,8 @@ export default {
   },
   data() {
     return {
-      countryData,
+      countryData: [],
+      showChoro: false,
       center: [55, 25],
       selectedPrediction: "2023",
       selectedInfo: "2022",
@@ -192,6 +195,7 @@ export default {
       this.center = [55,25]
     }
     */
+    this.loadChoro();
   },
   computed: {
     show() {
@@ -199,60 +203,51 @@ export default {
     },
   },
   methods: {
+    loadChoro() {
+      //this.showChoro = false;
+      this.countryData = [];
+      axios
+        .get(
+          "http://127.0.0.1:3000/predictions/summary?year=" +
+            this.selectedPrediction
+        )
+        .then((res) => {
+          let countries = Object.keys(res.data.countries);
+          for (let i = 0; i < countries.length; i++) {
+            this.countryData.push({
+              id: i,
+              country: countries[i],
+              y: res.data.countries[countries[i]],
+            });
+          }
+          this.showChoro = true;
+        });
+    },
     showCountry(country) {
-      let countryArr = [
-        {
-          city: "Geneva",
-          country: "Switzerland",
-          metrics: {
-            cost_of_living_index: 462.32,
-            rent_index: 233.43,
-            groceries_index: 384.52,
-            restaurant_price_index: 477.13,
-            local_ppi_index: 350.97,
-            crime_index: -34.54,
-            safety_index: 34.54,
-            qol_index: 53.52,
-            ppi_index: 117.82,
-            health_care_index: 30.69,
-            traffic_commute_index: 8.3,
-            pollution_index: 337.42,
-            climate_index: -3.76,
-            gross_rental_yield_centre: 1.84,
-            gross_rental_yield_out: -55.39,
-            price_to_rent_centre: -55.24,
-            price_to_rent_out: 58.54,
-            affordability_index: 60.41,
-            y: -377.52,
-          },
-        },
-        {
-          city: "Basel",
-          country: "Switzerland",
-          metrics: {
-            cost_of_living_index: 447.68,
-            rent_index: 134.92,
-            groceries_index: 315.49,
-            restaurant_price_index: 513.73,
-            local_ppi_index: 294.89,
-            crime_index: -76.9,
-            safety_index: 76.9,
-            qol_index: 66.21,
-            ppi_index: 117.21,
-            health_care_index: 9.8,
-            traffic_commute_index: 18.71,
-            pollution_index: 317.98,
-            climate_index: -18.19,
-            gross_rental_yield_centre: -29.64,
-            gross_rental_yield_out: -49.96,
-            price_to_rent_centre: -50.92,
-            price_to_rent_out: 54.46,
-            affordability_index: 69.74,
-            y: -435.29,
-          },
-        },
-      ];
+      this.currentCountry = [];
+      let countryArr = [];
+      axios
+        .get(
+          "http://127.0.0.1:3000/country?name=" +
+            country.name +
+            "&year=" +
+            this.selectedInfo
+        )
+        .then((res) => {
+          let cities = Object.keys(res.data.cities);
+          for (let i = 0; i < cities.length; i++) {
+            countryArr.push({
+              city: cities[i],
+              country: country.name,
+              metrics: res.data.cities[cities[i]],
+            });
+          }
+        })
+        .then(() => {
+          this.currentCountry = countryArr;
+        });
       this.selectedCountry = country.name;
+
       this.chartData.labels = [2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024];
       this.chartOptions.plugins.title.text = country.name + " buying indexes";
       this.chartData.datasets = [
@@ -263,7 +258,14 @@ export default {
           data: [100, 150, 200, 120, 150, 250, 200, 180],
         },
       ];
-      this.currentCountry = countryArr;
+    },
+  },
+  watch: {
+    selectedPrediction() {
+      this.loadChoro();
+    },
+    selectedInfo() {
+      this.showCountry({ name: this.selectedCountry });
     },
   },
 };
