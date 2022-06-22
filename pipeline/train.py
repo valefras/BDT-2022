@@ -6,7 +6,7 @@ import torch.nn as nn
 from torch.autograd import Variable
 import matplotlib.pyplot as plt
 import numpy as np
-from database_setup import connect, drop_city
+from .database_setup import connect, drop_city
 plt.style.use('ggplot')
 mm = MinMaxScaler()
 ss = StandardScaler()
@@ -54,6 +54,7 @@ def train_LSTM(df_train):
         if df.shape[0] < len(years):
             drop_city((city,))
         else:
+            df = df.sort_values('year')
             y_df = df.iloc[2:, -1].values
             df_to_predict = df.iloc[-2:, :]
             df_to_predict_main = df.iloc[-2:, :]
@@ -62,7 +63,6 @@ def train_LSTM(df_train):
             df.drop(["city", "country", "y"], axis=1, inplace=True)
             df = df.iloc[:-2, :]
             df = df.assign(y=y_df)
-            df = df.sort_values('year')
             X = df.iloc[:, :-1]
             y = df.iloc[:, -1:]
 

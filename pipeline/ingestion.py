@@ -1,4 +1,4 @@
-from database_setup import connect
+from .database_setup import connect
 from pyspark.ml.feature import VectorAssembler
 from pyspark.ml import Pipeline
 from pyspark.sql.types import *
