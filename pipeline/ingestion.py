@@ -15,13 +15,15 @@ from time import time, sleep
 import random
 import numpy as np
 import pandas as pd
-from pyspark.sql import SparkSession
+from pyspark.sql import SparkSession, SQLContext
 
 spark = SparkSession \
     .builder \
     .appName("BDT2022") \
     .config('spark.driver.host', '127.0.0.1') \
     .getOrCreate()
+
+spark.conf.set("spark.sql.shuffle.partitions", "1")
 
 to_scrape = [
     "https://www.numbeo.com/cost-of-living",
@@ -87,7 +89,7 @@ def scrape():
 
                 inter_data.append(city)
             print(str(year) + " done")
-            trusty_sleep(random.randint(2, 5))
+           # trusty_sleep(random.randint(2, 5))
 
         if cont == 0:
             dataf = pd.DataFrame(inter_data, columns=var_values)
@@ -124,7 +126,18 @@ def fill_missing(dataf):
             x[variable]) else x[variable], axis=1)
 
     filled_dataf = dataf.dropna()
-    return normalize_data(filled_dataf)
+    return insert_DB(filled_dataf)
+
+
+def insert_DB(df_final_y):
+    print("Pushing data to database...")
+    conn = connect()
+    to_upload = df_final_y
+    to_upload.to_sql(con=conn, name='main_data',
+                     if_exists='append', index=False)
+    db_conn = conn.connect()
+    db_conn.close()
+    return normalize_data(to_upload)
 
 
 def normalize_data(filled_dataf):
@@ -146,7 +159,7 @@ def normalize_data(filled_dataf):
         colnames[i]) for i in range(len(colnames))])
 
     df_final_y_temp = df_final.withColumn("y", F.round(df_final["cost_of_living_index"]*-1+df_final["rent_index"]*1+df_final["groceries_index"]*-0.5+df_final["restaurant_price_index"]*-0.5+df_final["local_ppi_index"]*1+df_final["crime_index"]*-1+df_final["safety_index"]*1+df_final["qol_index"]*1+df_final["ppi_index"]*1 +
-                                                  df_final["health_care_index"]*1+df_final["traffic_commute_index"]*-0.5+df_final["pollution_index"]*-1+df_final["climate_index"]*0.5+df_final["gross_rental_yield_centre"]*1+df_final["gross_rental_yield_out"]*1+df_final["price_to_rent_centre"]*-1+df_final["price_to_rent_out"]*-1+df_final["affordability_index"]*1, 3))
+                                                       df_final["health_care_index"]*1+df_final["traffic_commute_index"]*-0.5+df_final["pollution_index"]*-1+df_final["climate_index"]*0.5+df_final["gross_rental_yield_centre"]*1+df_final["gross_rental_yield_out"]*1+df_final["price_to_rent_centre"]*-1+df_final["price_to_rent_out"]*-1+df_final["affordability_index"]*1, 3))
 
     colnames = spark_dataf.schema.names[:-1]
     vecAssembler = VectorAssembler(
@@ -154,20 +167,13 @@ def normalize_data(filled_dataf):
     normalizer = MinMaxScaler(
         inputCol="features", outputCol="scaledFeatures")
     pipeline_normalize = Pipeline(stages=[vecAssembler, normalizer])
-    df_transf = pipeline_normalize.fit(df_final_y_temp).transform(df_final_y_temp)
+    df_transf = pipeline_normalize.fit(
+        df_final_y_temp).transform(df_final_y_temp)
     to_array = F.udf(lambda x: (x.toArray().tolist()), ArrayType(DoubleType()))
     df_array = df_transf.withColumn(
         "scaledFeatures", to_array("scaledFeatures"))
-    df_final_y = df_array.select([F.col(name) for name in colnames]+[F.round(F.col('scaledFeatures')[0], 3).alias("y")])
-    return insert_DB(df_final_y)
+    df_final_y = df_array.select([F.col(
+        name) for name in colnames]+[F.round(F.col('scaledFeatures')[0], 3).alias("y")])
 
-
-def insert_DB(df_final_y):
-    print("Pushing data to database...")
-    conn = connect()
-    to_upload = df_final_y.toPandas()
-    to_upload.to_sql(con=conn, name='main_data',
-                     if_exists='append', index=False)
-    db_conn = conn.connect()
-    db_conn.close()
-    return to_upload
+    # push y of past years into mysql db
+    return df_final_y.toPandas()

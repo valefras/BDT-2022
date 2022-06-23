@@ -23,8 +23,8 @@ class LSTM1(nn.Module):
 
         self.lstm = nn.LSTM(input_size=input_size, hidden_size=hidden_size,
                             num_layers=num_layers, batch_first=True)
-        self.fc_1 = nn.Linear(hidden_size, 128)
-        self.fc = nn.Linear(128, num_classes)
+        self.fc_1 = nn.Linear(hidden_size, 16)
+        self.fc = nn.Linear(16, num_classes)
 
         self.relu = nn.ReLU()
 
@@ -59,15 +59,16 @@ def train_LSTM(df_train):
             df_to_predict = df.iloc[-2:, :]
             df_to_predict_main = df.iloc[-2:, :]
             df_to_predict_main.drop(["y"], axis=1, inplace=True)
-            df_to_predict.drop(["city", "country", "y"], axis=1, inplace=True)
-            df.drop(["city", "country", "y"], axis=1, inplace=True)
+            df_to_predict.drop(
+                ["city", "country", "y", "year"], axis=1, inplace=True)
+            df.drop(["city", "country", "y", "year"], axis=1, inplace=True)
             df = df.iloc[:-2, :]
             df = df.assign(y=y_df)
             X = df.iloc[:, :-1]
             y = df.iloc[:, -1:]
 
             # X_ss = ss.fit_transform(X)
-            X_ss = np.array([X.iloc[i,:].values for i in range(X.shape[0])])
+            X_ss = np.array([X.iloc[i, :].values for i in range(X.shape[0])])
             y_mm = np.array([y.iloc[i].values for i in range(y.shape[0])])
             X_train = X_ss
             y_train = y_mm
@@ -82,7 +83,7 @@ def train_LSTM(df_train):
             num_epochs = 200  # 200 epochs
             learning_rate = 0.001  # 0.001 lr
 
-            input_size = 18  # number of features
+            input_size = 17  # number of features
             hidden_size = 2  # number of features in hidden state
             num_layers = 1  # number of stacked lstm layers
 
@@ -108,7 +109,8 @@ def train_LSTM(df_train):
                     print("Epoch: %d, loss: %1.5f" % (epoch, loss.item()))
 
             # df_X_ss = ss.fit_transform(df_to_predict)
-            df_X_ss = np.array([df_to_predict.iloc[i,:].values for i in range(df_to_predict.shape[0])])
+            df_X_ss = np.array(
+                [df_to_predict.iloc[i, :].values for i in range(df_to_predict.shape[0])])
             df_X_ss = Variable(torch.Tensor(df_X_ss))  # converting to Tensors
 
             # reshaping the dataset
@@ -118,7 +120,7 @@ def train_LSTM(df_train):
             train_predict = lstm1(df_X_ss)  # forward pass
             data_predict = train_predict.data.numpy()  # numpy conversion
 
-            #data_predict = mm.inverse_transform(data_predict)  # reverse transformation
+            # data_predict = mm.inverse_transform(data_predict)  # reverse transformation
             df_to_predict_main["y"] = data_predict
             df_to_predict_main = df_to_predict_main[[
                 'city', 'country', 'year', 'y']]
