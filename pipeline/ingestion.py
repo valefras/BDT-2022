@@ -1,4 +1,4 @@
-from .database_setup import connect
+from .database_setup import connect, insert_y
 from pyspark.ml.feature import VectorAssembler
 from pyspark.ml import Pipeline
 from pyspark.sql.types import *
@@ -89,7 +89,7 @@ def scrape():
 
                 inter_data.append(city)
             print(str(year) + " done")
-           # trusty_sleep(random.randint(2, 5))
+            trusty_sleep(random.randint(2, 5))
 
         if cont == 0:
             dataf = pd.DataFrame(inter_data, columns=var_values)
@@ -175,5 +175,8 @@ def normalize_data(filled_dataf):
     df_final_y = df_array.select([F.col(
         name) for name in colnames]+[F.round(F.col('scaledFeatures')[0], 3).alias("y")])
 
+    to_return = df_final_y.toPandas()
+    print("Adding response to DB...")
+    insert_y(to_return)
     # push y of past years into mysql db
-    return df_final_y.toPandas()
+    return to_return

@@ -1,5 +1,6 @@
 <template>
   <div>
+    <h1>Long term European real estate</h1>
     <div style="margin: 1em 0">
       <span>Predictions for the year: </span>
       <span class="select-dropdown">
@@ -20,28 +21,10 @@
       @showCountry="showCountry"
     />
     <div>
-      <h2>Cities information</h2>
-      <div v-if="show" style="margin-bottom: 0.75em">
-        <span>{{ selectedCountry }} - Year: </span>
-        <span class="select-dropdown">
-          <select v-model="selectedInfo">
-            <option value="2022">2022</option>
-            <option value="2021">2021</option>
-            <option value="2020">2020</option>
-            <option value="2019">2019</option>
-            <option value="2018">2018</option>
-            <option value="2017">2017</option>
-          </select>
-        </span>
-      </div>
+      <h2>More information</h2>
       <p v-if="!show">Click on a country to see detailed information</p>
       <div v-else>
-        <tableHome
-          :keys="keys"
-          :parsed_keys="parsed_keys"
-          :currentCountry="currentCountry"
-        />
-        <h2>Buying indexes</h2>
+        <h3>Historical + predicted investment ratings</h3>
         <div id="plot">
           <LineChartGenerator
             :chart-options="chartOptions"
@@ -53,6 +36,34 @@
             :styles="{ backgroundColor: 'white' }"
           />
         </div>
+        <h3>Raw data</h3>
+        <div style="margin-bottom: 0.75em">
+          <span>Year: </span>
+          <span class="select-dropdown">
+            <select v-model="selectedInfo">
+              <option value="2022">2022</option>
+              <option value="2021">2021</option>
+              <option value="2020">2020</option>
+              <option value="2019">2019</option>
+              <option value="2018">2018</option>
+              <option value="2017">2017</option>
+            </select>
+          </span>
+        </div>
+        <h4>Country summary</h4>
+        <ul>
+          <li>Country: {{ selectedCountry }}</li>
+          <li v-for="key in summaryKeys" :key="key">
+            {{ key == "y" ? "Investment rating" : parsed_keys[key] }}:
+            {{ currentSummary[key] }}
+          </li>
+        </ul>
+        <h4>Cities overview</h4>
+        <tableHome
+          :keys="keys"
+          :parsed_keys="parsed_keys"
+          :currentCountry="currentCountry"
+        />
       </div>
     </div>
   </div>
@@ -95,12 +106,14 @@ export default {
   },
   data() {
     return {
+      first: true,
       countryData: [],
       showChoro: false,
       center: [55, 25],
       selectedPrediction: "2023",
       selectedInfo: "2022",
       selectedCountry: "",
+      currentSummary: {},
       chartData: {
         labels: [],
         datasets: [],
@@ -140,6 +153,17 @@ export default {
         scrollWheelZoom: false,
       },
       currentCountry: [],
+      summaryKeys: [
+        "cost_of_living_index",
+        "rent_index",
+        "ppi_index",
+        "gross_rental_yield_centre",
+        "gross_rental_yield_out",
+        "price_to_rent_centre",
+        "price_to_rent_out",
+        "affordability_index",
+        "y",
+      ],
       keys: [
         //ricavare le keys da API?
         "cost_of_living_index",
@@ -164,25 +188,25 @@ export default {
       ],
       parsed_keys: {
         //fare il parse in automatico, magari con regex?
-        cost_of_living_index: "cost of living",
-        rent_index: "rent",
-        groceries_index: "groceries",
-        restaurant_price_index: "restaurant price",
-        local_ppi_index: "local purchasing power",
-        crime_index: "crime",
-        safety_index: "safety",
-        qol_index: "quality of life",
-        ppi_index: "purchasing power",
-        health_care_index: "health care",
-        traffic_commute_index: "traffic commute time",
-        pollution_index: "pollution",
-        climate_index: "climate",
-        gross_rental_yield_centre: "gross rental yield (centre)",
-        gross_rental_yield_out: "gross rental yield (out)",
-        price_to_rent_centre: "price to rent (centre)",
-        price_to_rent_out: "price to rent (out)",
-        affordability_index: "affordability",
-        y: "y",
+        cost_of_living_index: "Cost of living",
+        rent_index: "Rent",
+        groceries_index: "Groceries",
+        restaurant_price_index: "Restaurant price",
+        local_ppi_index: "Local purchasing power",
+        crime_index: "Crime",
+        safety_index: "Safety",
+        qol_index: "Quality of life",
+        ppi_index: "Purchasing power",
+        health_care_index: "Health care",
+        traffic_commute_index: "Traffic commute time",
+        pollution_index: "Pollution",
+        climate_index: "Climate",
+        gross_rental_yield_centre: "Gross rental yield (centre)",
+        gross_rental_yield_out: "Gross rental yield (out)",
+        price_to_rent_centre: "Price to rent (centre)",
+        price_to_rent_out: "Price to rent (out)",
+        affordability_index: "Affordability",
+        y: "Investment rating",
       },
     };
   },
@@ -199,7 +223,10 @@ export default {
   },
   computed: {
     show() {
-      return this.currentCountry.length != 0;
+      if (this.first) {
+        return this.currentCountry.length != 0;
+      }
+      return true;
     },
   },
   methods: {
@@ -235,29 +262,63 @@ export default {
         )
         .then((res) => {
           let cities = Object.keys(res.data.cities);
+          for (let i = 0; i < this.summaryKeys.length; i++) {
+            this.currentSummary[this.summaryKeys[i]] = 0;
+          }
           for (let i = 0; i < cities.length; i++) {
             countryArr.push({
               city: cities[i],
               country: country.name,
               metrics: res.data.cities[cities[i]],
             });
+            for (let i = 0; i < this.summaryKeys.length; i++) {
+              this.currentSummary[this.summaryKeys[i]] +=
+                res.data.cities[cities[i]][this.summaryKeys[i]];
+            }
+          }
+          for (let i = 0; i < this.summaryKeys.length; i++) {
+            this.currentSummary[this.summaryKeys[i]] = (
+              this.currentSummary[this.summaryKeys[i]] / cities.length
+            )
+              .toFixed(3)
+              .replace(/0+$/, "");
           }
         })
         .then(() => {
           this.currentCountry = countryArr;
+        })
+        .catch((err) => {
+          console.error(err);
         });
       this.selectedCountry = country.name;
-
-      this.chartData.labels = [2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024];
-      this.chartOptions.plugins.title.text = country.name + " buying indexes";
-      this.chartData.datasets = [
-        {
-          label: "Buying index",
-          pointBackgroundColor: this.pointBackgroundColor,
-          radius: 5,
-          data: [100, 150, 200, 120, 150, 250, 200, 180],
-        },
-      ];
+      this.showChart();
+      this.first = false;
+    },
+    showChart() {
+      axios
+        .get(
+          "http://127.0.0.1:3000/responses/full?country=" + this.selectedCountry
+        )
+        .then((res) => {
+          this.chartData.labels = Object.keys(res.data);
+          this.chartOptions.plugins.title.text =
+            this.selectedCountry + " buying indexes";
+          let dataChart = [];
+          for (let i = 0; i < this.chartData.labels.length; i++) {
+            dataChart.push(res.data[this.chartData.labels[i]]);
+          }
+          this.chartData.datasets = [
+            {
+              label: "Buying index",
+              pointBackgroundColor: this.pointBackgroundColor,
+              radius: 5,
+              data: dataChart,
+            },
+          ];
+        })
+        .catch((err) => {
+          console.error(err);
+        });
     },
   },
   watch: {

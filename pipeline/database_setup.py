@@ -2,6 +2,7 @@ import mysql.connector
 from sqlalchemy import create_engine
 import pymysql
 from dotenv import load_dotenv
+import pandas as pd
 import os
 
 load_dotenv()
@@ -52,6 +53,24 @@ def insert_main(mycursor, city_data, mydb):
     mycursor.execute(sql_data, city_data)
     mydb.commit()
 '''
+
+def insert_y(df):
+    mydb = connect_local()
+    
+    mycursor = mydb.cursor()
+
+    cont = 0
+    for row in zip(df['y'], df['country'], df['city'], df['year']):
+        sql_data = "UPDATE main_data SET y = %s WHERE country = %s AND city = %s and year = %s"
+        mycursor.execute(sql_data, row)
+        cont += 1
+        if cont > 50:
+            mydb.commit()
+            cont = 0
+    mydb.commit()
+    close_connection(mycursor, mydb)
+
+
 
 def create_db():
     mydb = mysql.connector.connect(

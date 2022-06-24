@@ -85,7 +85,7 @@ a {
     font-size: 12pt !important;
   }
 }
-h2 {
+h1, h2, h3, h4 {
   color: var(--header);
 }
 </style>

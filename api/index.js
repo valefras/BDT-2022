@@ -27,7 +27,7 @@ fastify.get('/country', async function (request, reply) {
         await knex('main_data').where({
             year: year,
             country: country
-        }).select('*').then(function (rows) {
+        }).orderBy("city").select('*').then(function (rows) {
             for (let i = 0; i < rows.length; i++) {
                 delete rows[i].country
                 delete rows[i].year
@@ -109,15 +109,14 @@ fastify.get('/responses/full', async function (request, reply) {
     if (request.query.country && request.query.country != "") {
         let country = sanitizeUrl(request.query.country)
         let toRtn = {}
-        await knex.select('main_data.year', knex.raw('AVG(main_data.y) AS y'))
-            .from('main_data')
-            .where({ country: country })
-            .groupBy('year', 'country')
-            .union([
-                knex.select('predictions.year', knex.raw('AVG(predictions.y) AS y'))
+        await knex.unionAll(
+            [knex.select('main_data.year', knex.raw('AVG(main_data.y) AS y'))
+                .from('main_data')
+                .where({ country: country }).groupBy('year'), knex.select('predictions.year',
+                    knex.raw('AVG(predictions.y) AS y'))
                     .from('predictions')
-                    .where({ country: country })
-            ])
+                    .where({ country: country }).groupBy('year')]
+        )
             .then(function (rows) {
                 for (let i = 0; i < rows.length; i++) {
                     toRtn[rows[i].year] = rows[i].y;
