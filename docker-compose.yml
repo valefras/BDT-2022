@@ -1,0 +1,26 @@
+version: "3"
+services:
+  backend:
+    container_name: api-realestate
+    build:
+        context: ./api
+    volumes:
+      - ./api:/usr/app
+      - /usr/app/node_modules
+    environment:
+      - HOST_DB=${HOST}
+      - PORT_DB=${PORT}
+      - USER_DB=${USER}
+      - PASS_DB=${LOCALHOST_PASSWORD}
+      - FASTIFY_ADDRESS=0.0.0.0
+    network_mode: "host"
+
+  frontend:
+    container_name: frontend-realestate
+    build:
+      context: ./frontend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - '8080:8080'
