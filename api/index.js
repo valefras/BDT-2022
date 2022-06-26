@@ -16,6 +16,16 @@ const knex = require('knex')({
     }
 });
 
+var redis = require("redis");
+if (process.env.REDIS_PORT != "" && process.env.REDIS_HOST != "") {
+    var client = redis.createClient(process.env.REDIS_PORT, process.env.REDIS_HOST);
+}
+else {
+    var client = redis.createClient()
+}
+client.connect();
+client.on('error', (err) => console.log('Redis Client Error', err));
+
 // Get all the cities of a country for a given year
 fastify.get('/country', async function (request, reply) {
     reply.header("Access-Control-Allow-Origin", "*");
@@ -24,21 +34,41 @@ fastify.get('/country', async function (request, reply) {
         let year = sanitizeUrl(request.query.year)
         let country = sanitizeUrl(request.query.name)
         let toRtn = { year: year, country: country, cities: {} }
-        await knex('main_data').where({
-            year: year,
-            country: country
-        }).orderBy("city").select('*').then(function (rows) {
-            for (let i = 0; i < rows.length; i++) {
-                delete rows[i].country
-                delete rows[i].year
-                toRtn.cities[rows[i].city] = JSON.parse(JSON.stringify(rows[i]));
-                delete toRtn.cities[rows[i].city].city
-            }
+        let key = 'country:' + country + ":" + year
+        //await client.del(key)
+        let results = await client.get(key)
+        /* await client.ttl(key).then(res=>{
+            console.log(res)
+        }) */
+        if (!results) {
+            await knex('main_data').where({
+                year: year,
+                country: country
+            }).orderBy("city").select('*').then(function (rows) {
+                for (let i = 0; i < rows.length; i++) {
+                    delete rows[i].country
+                    delete rows[i].year
+                    toRtn.cities[rows[i].city] = JSON.parse(JSON.stringify(rows[i]));
+                    delete toRtn.cities[rows[i].city].city
+                }
+                reply
+                    .code(200)
+                    .header('Content-Type', 'application/json')
+                    .send(toRtn)
+                if (rows.length > 0) {
+                    client.set(key, JSON.stringify(toRtn), {
+                        EX: 3600
+                    })
+                }
+            })
+        }
+        else {
+            //console.log("REDIS")
             reply
                 .code(200)
                 .header('Content-Type', 'application/json')
-                .send(toRtn)
-        })
+                .send(JSON.parse(results))
+        }
     }
     else {
         reply.send({ status: 200, error: "Invalid query" })
@@ -52,21 +82,37 @@ fastify.get('/predictions/summary', async function (request, reply) {
     if (request.query.year && request.query.year != "") {
         let year = sanitizeUrl(request.query.year)
         let toRtn = { year: year, countries: {} }
-        await knex.select('country', knex.raw('AVG(y)'))
-            .from('predictions')
-            .where({
-                year: year
-            })
-            .groupBy('country')
-            .then(function (rows) {
-                for (let i = 0; i < rows.length; i++) {
-                    toRtn.countries[rows[i].country] = parseFloat(rows[i]["AVG(y)"].toFixed(3));
-                }
-                reply
-                    .code(200)
-                    .header('Content-Type', 'application/json')
-                    .send(toRtn)
-            })
+        let key = 'preds:summary:' + year
+        let results = await client.get(key)
+        if (!results) {
+            await knex.select('country', knex.raw('AVG(y)'))
+                .from('predictions')
+                .where({
+                    year: year
+                })
+                .groupBy('country')
+                .then(function (rows) {
+                    for (let i = 0; i < rows.length; i++) {
+                        toRtn.countries[rows[i].country] = parseFloat(rows[i]["AVG(y)"].toFixed(3));
+                    }
+                    reply
+                        .code(200)
+                        .header('Content-Type', 'application/json')
+                        .send(toRtn)
+                    if (rows.length > 0) {
+                        client.set(key, JSON.stringify(toRtn), {
+                            EX: 3600
+                        })
+                    }
+                })
+        }
+        else {
+            //console.log("REDIS")
+            reply
+                .code(200)
+                .header('Content-Type', 'application/json')
+                .send(JSON.parse(results))
+        }
     }
     else {
         reply.send({ status: 200, error: "Invalid query" })
@@ -81,21 +127,37 @@ fastify.get('/predictions/full', async function (request, reply) {
         let year = sanitizeUrl(request.query.year)
         let country = sanitizeUrl(request.query.country)
         let toRtn = { year: year, cities: {} }
-        await knex.select('city', 'y')
-            .from('predictions')
-            .where({
-                country: country,
-                year: year
-            })
-            .then(function (rows) {
-                for (let i = 0; i < rows.length; i++) {
-                    toRtn.cities[rows[i].city] = rows[i].y;
-                }
-                reply
-                    .code(200)
-                    .header('Content-Type', 'application/json')
-                    .send(toRtn)
-            })
+        let key = 'preds:' + country + ':' + year
+        let results = await client.get(key)
+        if (!results) {
+            await knex.select('city', 'y')
+                .from('predictions')
+                .where({
+                    country: country,
+                    year: year
+                })
+                .then(function (rows) {
+                    for (let i = 0; i < rows.length; i++) {
+                        toRtn.cities[rows[i].city] = rows[i].y;
+                    }
+                    reply
+                        .code(200)
+                        .header('Content-Type', 'application/json')
+                        .send(toRtn)
+                    if (rows.length > 0) {
+                        client.set(key, JSON.stringify(toRtn), {
+                            EX: 3600
+                        })
+                    }
+                })
+        }
+        else {
+            //console.log("REDIS")
+            reply
+                .code(200)
+                .header('Content-Type', 'application/json')
+                .send(JSON.parse(results))
+        }
     }
     else {
         reply.send({ status: 200, error: "Invalid query" })
@@ -109,23 +171,39 @@ fastify.get('/responses/full', async function (request, reply) {
     if (request.query.country && request.query.country != "") {
         let country = sanitizeUrl(request.query.country)
         let toRtn = {}
-        await knex.unionAll(
-            [knex.select('main_data.year', knex.raw('AVG(main_data.y) AS y'))
-                .from('main_data')
-                .where({ country: country }).groupBy('year'), knex.select('predictions.year',
-                    knex.raw('AVG(predictions.y) AS y'))
-                    .from('predictions')
-                    .where({ country: country }).groupBy('year')]
-        )
-            .then(function (rows) {
-                for (let i = 0; i < rows.length; i++) {
-                    toRtn[rows[i].year] = rows[i].y;
-                }
-                reply
-                    .code(200)
-                    .header('Content-Type', 'application/json')
-                    .send(toRtn)
-            })
+        let key = 'y:' + country
+        let results = await client.get(key)
+        if (!results) {
+            await knex.unionAll(
+                [knex.select('main_data.year', knex.raw('AVG(main_data.y) AS y'))
+                    .from('main_data')
+                    .where({ country: country }).groupBy('year'), knex.select('predictions.year',
+                        knex.raw('AVG(predictions.y) AS y'))
+                        .from('predictions')
+                        .where({ country: country }).groupBy('year')]
+            )
+                .then(function (rows) {
+                    for (let i = 0; i < rows.length; i++) {
+                        toRtn[rows[i].year] = rows[i].y;
+                    }
+                    reply
+                        .code(200)
+                        .header('Content-Type', 'application/json')
+                        .send(toRtn)
+                    if (rows.length > 0) {
+                        client.set(key, JSON.stringify(toRtn), {
+                            EX: 3600
+                        })
+                    }
+                })
+        }
+        else {
+            //console.log("REDIS")
+            reply
+                .code(200)
+                .header('Content-Type', 'application/json')
+                .send(JSON.parse(results))
+        }
     }
     else {
         reply.send({ status: 200, error: "Invalid query" })
