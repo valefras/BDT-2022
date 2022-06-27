@@ -12,6 +12,10 @@ services:
       - PORT_DB=${PORT}
       - USER_DB=${USER}
       - PASS_DB=${LOCALHOST_PASSWORD}
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
+      - REDIS_USERNAME=${REDIS_USERNAME}
+      - REDIS_PASS=${REDIS_PASS}
       - FASTIFY_ADDRESS=0.0.0.0
     network_mode: "host"
 
