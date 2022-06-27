@@ -8,17 +8,17 @@ const fastify = require('fastify')({
 const knex = require('knex')({
     client: 'mysql',
     connection: {
-        host: process.env.HOST_DB,
-        port: process.env.PORT_DB,
-        user: process.env.USER_DB,
-        password: process.env.PASS_DB,
+        host: process.env.HOST,
+        port: process.env.PORT,
+        user: process.env.USER,
+        password: process.env.LOCALHOST_PASSWORD,
         database: 'bd2022'
     }
 });
 
 var redis = require("redis");
 if (process.env.REDIS_PORT != "" && process.env.REDIS_HOST != "") {
-    var client = redis.createClient(process.env.REDIS_PORT, process.env.REDIS_HOST);
+    var client = redis.createClient({ url: 'redis://' + process.env.REDIS_HOST + ':' + process.env.REDIS_PORT, username: process.env.REDIS_USERNAME, password: process.env.REDIS_PASS });
 }
 else {
     var client = redis.createClient()

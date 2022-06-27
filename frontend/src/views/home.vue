@@ -147,7 +147,7 @@ export default {
         key: "y",
         metric: "investment rating",
       },
-      colorScale: ["b4e4e3", "2b7a78"],
+      colorScale: ["af3a40", "3aafa9"],
       mapOptions: {
         attributionControl: false,
         scrollWheelZoom: false,
@@ -271,9 +271,9 @@ export default {
               country: country.name,
               metrics: res.data.cities[cities[i]],
             });
-            for (let i = 0; i < this.summaryKeys.length; i++) {
-              this.currentSummary[this.summaryKeys[i]] +=
-                res.data.cities[cities[i]][this.summaryKeys[i]];
+            for (let j = 0; j < this.summaryKeys.length; j++) {
+              this.currentSummary[this.summaryKeys[j]] +=
+                res.data.cities[cities[i]][this.summaryKeys[j]];
             }
           }
           for (let i = 0; i < this.summaryKeys.length; i++) {
