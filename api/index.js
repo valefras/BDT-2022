@@ -119,26 +119,27 @@ fastify.get('/predictions/summary', async function (request, reply) {
     }
 })
 
-// Get the predictions for all the cities of a certain country for a given year
+// Get the predictions for all the cities of a certain country
 fastify.get('/predictions/full', async function (request, reply) {
     reply.header("Access-Control-Allow-Origin", "*");
     reply.header("Access-Control-Allow-Methods", "GET");
-    if ((request.query.year && request.query.year != "") && (request.query.country && request.query.country != "")) {
-        let year = sanitizeUrl(request.query.year)
+    if (request.query.country && request.query.country != "") {
         let country = sanitizeUrl(request.query.country)
-        let toRtn = { year: year, cities: {} }
-        let key = 'preds:' + country + ':' + year
+        let toRtn = {}
+        let key = 'preds:full:' + country
         let results = await client.get(key)
         if (!results) {
-            await knex.select('city', 'y')
+            await knex.select('city', 'y', 'year')
                 .from('predictions')
                 .where({
-                    country: country,
-                    year: year
+                    country: country
                 })
                 .then(function (rows) {
                     for (let i = 0; i < rows.length; i++) {
-                        toRtn.cities[rows[i].city] = rows[i].y;
+                        if(!toRtn[rows[i].year]){
+                            toRtn[rows[i].year] = {}
+                        }
+                        toRtn[rows[i].year][rows[i].city] = rows[i].y;
                     }
                     reply
                         .code(200)
