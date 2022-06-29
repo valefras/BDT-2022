@@ -2,7 +2,7 @@
   <div>
     <h1>Long term European real estate</h1>
     <div style="margin: 1em 0">
-      <span>Predictions for the year: </span>
+      <span>Forecast for the year: </span>
       <span class="select-dropdown">
         <select v-model="selectedPrediction">
           <option value="2023">2023</option>
@@ -21,22 +21,37 @@
       @showCountry="showCountry"
     />
     <div>
-      <h2>More information</h2>
+      <h2>
+        More information
+        <span v-if="selectedCountry">on {{ selectedCountry }}</span>
+      </h2>
       <p v-if="!show">Click on a country to see detailed information</p>
       <div v-else>
-        <h3>Historical + predicted investment ratings</h3>
-        <div id="plot">
-          <LineChartGenerator
-            :chart-options="chartOptions"
-            :chart-data="chartData"
-            :chart-id="'plot'"
-            :dataset-id-key="'label'"
-            :width="400"
-            :height="200"
-            :styles="{ backgroundColor: 'white' }"
-          />
+        <div class="grid">
+          <div>
+            <h3>Historical + forecast investment index (by city)</h3>
+            <tableHome
+              :keys="trendKeys"
+              :parsed_keys="trendParsedKeys"
+              :currentCountry="trendCurrentCountry"
+            />
+          </div>
+          <div>
+            <h3>Historical + forecast investment index (country mean)</h3>
+            <div id="plot">
+              <LineChartGenerator
+                :chart-options="chartOptions"
+                :chart-data="chartData"
+                :chart-id="'plot'"
+                :dataset-id-key="'label'"
+                :width="400"
+                :height="200"
+                :styles="{ backgroundColor: 'white' }"
+              />
+            </div>
+          </div>
         </div>
-        <h3>Raw data</h3>
+        <h3>Historical data</h3>
         <div style="margin-bottom: 0.75em">
           <span>Year: </span>
           <span class="select-dropdown">
@@ -118,6 +133,8 @@ export default {
         labels: [],
         datasets: [],
       },
+      trendTable: [],
+      firstCity: "",
       pointBackgroundColor: [
         //fare il fill dell'array in automatico quando riceviamo la risposta API
         "#2b7a78",
@@ -153,7 +170,11 @@ export default {
         scrollWheelZoom: false,
       },
       currentCountry: [],
+      trendCurrentCountry: [],
+      trendParsedKeys: {},
+      trendKeys: [],
       summaryKeys: [
+        "y",
         "cost_of_living_index",
         "rent_index",
         "ppi_index",
@@ -162,10 +183,10 @@ export default {
         "price_to_rent_centre",
         "price_to_rent_out",
         "affordability_index",
-        "y",
       ],
       keys: [
         //ricavare le keys da API?
+        "y",
         "cost_of_living_index",
         "rent_index",
         "groceries_index",
@@ -184,10 +205,10 @@ export default {
         "price_to_rent_centre",
         "price_to_rent_out",
         "affordability_index",
-        "y",
       ],
       parsed_keys: {
         //fare il parse in automatico, magari con regex?
+        y: "Investment rating",
         cost_of_living_index: "Cost of living",
         rent_index: "Rent",
         groceries_index: "Groceries",
@@ -206,7 +227,6 @@ export default {
         price_to_rent_centre: "Price to rent (centre)",
         price_to_rent_out: "Price to rent (out)",
         affordability_index: "Affordability",
-        y: "Investment rating",
       },
     };
   },
@@ -302,7 +322,7 @@ export default {
         .then((res) => {
           this.chartData.labels = Object.keys(res.data);
           this.chartOptions.plugins.title.text =
-            this.selectedCountry + " buying indexes";
+            this.selectedCountry + " buying indexes (cities mean)";
           let dataChart = [];
           for (let i = 0; i < this.chartData.labels.length; i++) {
             dataChart.push(res.data[this.chartData.labels[i]]);
@@ -319,6 +339,42 @@ export default {
         .catch((err) => {
           console.error(err);
         });
+      this.showTrend();
+    },
+    showTrend() {
+      this.trendCurrentCountry = [];
+      axios
+        .get(
+          "http://127.0.0.1:3000/predictions/full?country=" +
+            this.selectedCountry
+        )
+        .then((res) => {
+          this.trendTable = res.data;
+          this.firstCity = Object.keys(this.trendTable)[0];
+          for (let i = 0; i < Object.keys(this.trendTable).length; i++) {
+            this.trendCurrentCountry.push({
+              city: Object.keys(this.trendTable)[i],
+              country: this.selectedCountry,
+              metrics: this.trendTable[Object.keys(this.trendTable)[i]],
+            });
+          }
+
+          this.trendKeys = Object.keys(this.trendTable[this.firstCity]);
+
+          this.trendParsedKeys = Object.assign(
+            ...Object.keys(
+              this.trendTable[Object.keys(this.trendTable)[0]]
+            ).map((k, i) => ({
+              [k]: Object.keys(
+                this.trendTable[Object.keys(this.trendTable)[0]]
+              )[i],
+            }))
+          );
+        })
+
+        .catch((err) => {
+          console.error(err);
+        });
     },
   },
   watch: {
@@ -327,12 +383,19 @@ export default {
     },
     selectedInfo() {
       this.showCountry({ name: this.selectedCountry });
+      this.showTrend({ name: this.selectedCountry });
     },
   },
 };
 </script>
 
 <style scoped>
+.grid {
+  display: grid;
+  gap: 20px;
+
+  grid-template-columns: 1fr 1fr;
+}
 .select-dropdown,
 .select-dropdown * {
   margin: 0;
@@ -375,9 +438,16 @@ export default {
   border-right: 5px solid transparent;
   border-left: 5px solid transparent;
 }
+
 @media (min-width: 768px) {
   #plot {
     max-width: 768px;
+  }
+}
+@media (max-width: 1200px) {
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr;
   }
 }
 </style>

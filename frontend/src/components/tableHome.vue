@@ -1,6 +1,6 @@
 <template>
   <div class="overflow-x-auto">
-    <table class="">
+    <table class="mx-auto">
       <thead>
         <tr class="uppercase tbl-head">
           <th class="px-2" @click="sort('city')">
@@ -99,6 +99,7 @@ export default {
   },
   methods: {
     sort(s) {
+      console.log(s);
       if (s === this.currentSort) {
         this.currentSortDir = this.currentSortDir === "asc" ? "desc" : "asc";
       } else {
@@ -130,11 +131,15 @@ export default {
 </script>
 
 <style scoped>
+.mx-auto {
+  margin-left: auto;
+  margin-right: auto;
+}
 .overflow-x-auto {
   overflow-x: auto;
 }
 .p-1 {
-  padding: 0.25rem; /* 4px */
+  padding: 0.15rem;
 }
 .tbl-head {
   background-color: var(--azure-dark);
@@ -154,7 +159,7 @@ svg {
   height: 24px;
   fill: white;
 }
-th > span{
+th > span {
   display: block;
 }
 </style>
