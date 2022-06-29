@@ -12,6 +12,7 @@ The predictions are made using an LSTM model. This model has many general uses, 
 - Python 3.x
 - MySQL/MariaDB (make sure the user has remote access)
 - Spark
+- NodeJS v14+ (only if Docker is not available)
 - Docker and Docker Compose
 
 ## How to use
