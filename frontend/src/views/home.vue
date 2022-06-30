@@ -27,28 +27,32 @@
       </h2>
       <p v-if="!show">Click on a country to see detailed information</p>
       <div v-else>
-        <div class="grid">
+        <div class="splitSection">
           <div>
-            <h3>Historical + forecast investment index (by city)</h3>
-            <tableHome
-              :keys="trendKeys"
-              :parsed_keys="trendParsedKeys"
-              :currentCountry="trendCurrentCountry"
-              :isTrend="true"
-            />
+            <h3>Historical & forecasted investment index by city</h3>
+            <div>
+              <tableHome
+                :keys="trendKeys"
+                :parsed_keys="trendParsedKeys"
+                :currentCountry="trendCurrentCountry"
+                :isTrend="true"
+              />
+            </div>
           </div>
           <div>
-            <h3>Historical + forecast investment index (country mean)</h3>
-            <div id="plot">
-              <LineChartGenerator
-                :chart-options="chartOptions"
-                :chart-data="chartData"
-                :chart-id="'plot'"
-                :dataset-id-key="'label'"
-                :width="400"
-                :height="200"
-                :styles="{ backgroundColor: 'white' }"
-              />
+            <h3>Historical & forecasted mean investment index</h3>
+            <div>
+              <div id="plot">
+                <LineChartGenerator
+                  :chart-options="chartOptions"
+                  :chart-data="chartData"
+                  :chart-id="'plot'"
+                  :dataset-id-key="'label'"
+                  :width="400"
+                  :height="200"
+                  :styles="{ backgroundColor: 'white' }"
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -323,7 +327,11 @@ export default {
         .then((res) => {
           this.chartData.labels = Object.keys(res.data);
           this.chartOptions.plugins.title.text =
-            this.selectedCountry + " buying indexes (cities mean)";
+            this.selectedCountry +
+            (this.selectedCountry[this.selectedCountry.length - 1] == "s"
+              ? "'"
+              : "'s") +
+            " mean investment indexes";
           let dataChart = [];
           for (let i = 0; i < this.chartData.labels.length; i++) {
             dataChart.push(res.data[this.chartData.labels[i]]);
@@ -391,12 +399,6 @@ export default {
 </script>
 
 <style scoped>
-.grid {
-  display: grid;
-  gap: 20px;
-
-  grid-template-columns: 1fr 1fr;
-}
 .select-dropdown,
 .select-dropdown * {
   margin: 0;
@@ -440,15 +442,24 @@ export default {
   border-left: 5px solid transparent;
 }
 
-@media (min-width: 768px) {
+.splitSection {
+  display: flex;
+  justify-content: space-between;
+  flex-direction: column;
+}
+
+@media (min-width: 1024px) {
+  .splitSection {
+    flex-direction: row;
+  }
+  .splitSection > div {
+    width: 48%;
+  }
+}
+
+/* @media (min-width: 768px) {
   #plot {
     max-width: 768px;
   }
-}
-@media (max-width: 1200px) {
-  .grid {
-    display: grid;
-    grid-template-columns: 1fr;
-  }
-}
+} */
 </style>
