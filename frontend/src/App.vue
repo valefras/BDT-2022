@@ -85,7 +85,13 @@ a {
     font-size: 12pt !important;
   }
 }
-h1, h2, h3, h4 {
+h1,
+h2,
+h3,
+h4 {
   color: var(--header);
+}
+th {
+  font-weight: 400;
 }
 </style>

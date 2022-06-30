@@ -34,6 +34,7 @@
               :keys="trendKeys"
               :parsed_keys="trendParsedKeys"
               :currentCountry="trendCurrentCountry"
+              :isTrend="true"
             />
           </div>
           <div>

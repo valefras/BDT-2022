@@ -152,7 +152,6 @@ fastify.get("/predictions/full", async function (request, reply) {
           }),
         ])
         .then(function (rows) {
-          print(rows.length);
           for (let i = 0; i < rows.length; i++) {
             if (!toRtn[rows[i].city]) {
               toRtn[rows[i].city] = {};

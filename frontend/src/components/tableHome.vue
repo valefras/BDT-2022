@@ -65,6 +65,9 @@
               </svg>
             </span>
           </th>
+          <th v-if="isTrend" class="px-2">
+            <span>Long Term Investment Rating</span>
+          </th>
         </tr>
       </thead>
       <tbody>
@@ -73,6 +76,20 @@
           <td class="p-1 px-2" v-for="k in keys" :key="c.city + k">
             {{ c.metrics[k] }}
           </td>
+          <td v-if="isTrend">
+            <starRating
+              :rating="
+                getRating(
+                  c.metrics[
+                    Object.keys(c.metrics)[Object.keys(c.metrics).length - 2]
+                  ],
+                  c.metrics[
+                    Object.keys(c.metrics)[Object.keys(c.metrics).length - 1]
+                  ]
+                )
+              "
+            />
+          </td>
         </tr>
       </tbody>
     </table>
@@ -80,26 +97,34 @@
 </template>
 
 <script>
+import starRating from "../components/starRating.vue";
 export default {
   name: "tableHome",
   props: {
     keys: Array,
     currentCountry: Array,
     parsed_keys: Object,
+    isTrend: Boolean,
+  },
+  components: {
+    starRating,
   },
   data() {
     return {
       cities: [],
       currentSortDir: "asc",
       currentSort: "city",
+      forecastMean: 0,
     };
   },
   created() {
     this.cities = this.currentCountry;
   },
   methods: {
+    getRating(val1, val2) {
+      return Math.round(((val1 + val2) / 2) * 10);
+    },
     sort(s) {
-      console.log(s);
       if (s === this.currentSort) {
         this.currentSortDir = this.currentSortDir === "asc" ? "desc" : "asc";
       } else {
