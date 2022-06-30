@@ -29,7 +29,7 @@
       <div v-else>
         <div class="splitSection">
           <div>
-            <h3>Historical & forecasted investment index by city</h3>
+            <h3>Historical & forecast investment index by city</h3>
             <div>
               <tableHome
                 :keys="trendKeys"
@@ -40,7 +40,7 @@
             </div>
           </div>
           <div>
-            <h3>Historical & forecasted mean investment index</h3>
+            <h3>Historical & forecast mean investment index</h3>
             <div>
               <div id="plot">
                 <LineChartGenerator
