@@ -4,5 +4,5 @@ To start the api, simply install the needed dependencies with 'npm i' and then r
 ## Endpoints
 - /country?name=[insert_name]&year=[insert_year] = get all the cities of a country for a given year
 - /predictions/summary?year=[insert_year] = get the average predictions for all countries for a given year
-- /predictions/full?year=[insert_year]&country=[insert_country] = get the predictions for all the cities of a certain country for a given year
+- /predictions/full?country=[insert_country] = get the historical and forecast investment indices for all the cities of a certain country
 - /responses/full?country=[insert_country] = get all the y for all the years in the DB (both real and predicted) for a certain country
