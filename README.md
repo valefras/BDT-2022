@@ -10,6 +10,7 @@ The predictions are made using an LSTM model. This model has many general uses, 
 
 ## Requirements
 - Python 3.x
+- Redis (either local or with a remote account like redis.com)
 - MySQL/MariaDB (make sure the user has remote access)
 - Spark
 - NodeJS v14+ (only if Docker is not available)
